@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: AI Jobs MCP server (FastMCP on Lambda arm64 zip, Google sign-in, Supabase ai_leads)
+
+Parameters:
+  SupabaseUrl: { Type: String }
+  SupabaseSecretKey: { Type: String, NoEcho: true }
+  SupabaseTable: { Type: String, Default: ai_leads }
+  GoogleClientId: { Type: String }
+  GoogleClientSecret: { Type: String, NoEcho: true }
+  JwtSigningKey: { Type: String, NoEcho: true, MinLength: 32 }
+  ContactEmail: { Type: String, Default: "" }
+  # Function URL + /mcp. Unknown on the very first deploy; deploy.sh fills it in.
+  McpServerUrl: { Type: String, Default: "http://localhost:8000/mcp" }
+
+Resources:
+  OAuthTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: collection, AttributeType: S }
+        - { AttributeName: key, AttributeType: S }
+      KeySchema:
+        - { AttributeName: collection, KeyType: HASH }
+        - { AttributeName: key, KeyType: RANGE }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+
+  McpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .build/ # filled by deploy.sh with uv (Linux arm64 wheels + *.py + run.sh)
+      Runtime: python3.12
+      Handler: run.sh
+      Architectures: [arm64] # Graviton: ~20% cheaper than x86
+      MemorySize: 512
+      Timeout: 30
+      # AWS Lambda Web Adapter 0.9.1: runs uvicorn unchanged behind the Function URL.
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerArm64:25
+      LoggingConfig:
+        LogGroup: !Ref Logs
+      Environment:
+        Variables:
+          AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
+          AWS_LWA_PORT: "8000"
+          AWS_LWA_READINESS_CHECK_PATH: /health
+          HOME: /tmp
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
+          SUPABASE_TABLE: !Ref SupabaseTable
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          JWT_SIGNING_KEY: !Ref JwtSigningKey
+          CONTACT_EMAIL: !Ref ContactEmail
+          MCP_SERVER_URL: !Ref McpServerUrl
+          OAUTH_TABLE: !Ref OAuthTable
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref OAuthTable }
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:DescribeTimeToLive
+              Resource: !GetAtt OAuthTable.Arn
+      FunctionUrlConfig:
+        AuthType: NONE # the MCP server itself enforces Google sign-in
+        InvokeMode: BUFFERED
+
+Outputs:
+  McpUrl:
+    Description: Add this URL to Claude / Cursor
+    Value: !Sub "${McpFunctionUrl.FunctionUrl}mcp"

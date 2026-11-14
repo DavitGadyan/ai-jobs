@@ -1,0 +1,33 @@
+[project]
+name = "ai-jobs-mcp"
+version = "0.1.0"
+description = "Remote MCP server over the ai_leads table (Supabase), Google sign-in, deployable to AWS Lambda"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=4.2.0",
+    "httpx>=0.28.1",
+    "py-key-value-aio[dynamodb]>=0.4.6",
+    "pydantic-settings>=2.16.3",
+    # cryptography 49+ ships no Intel-Mac wheels; Lambda (Linux) gets the latest.
+    "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.2.0", "pytest-asyncio>=1.5.0", "respx>=0.23.1", "ruff>=0.17.5"]
+
+[tool.uv]
+package = false
+no-build-package = ["cryptography"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]

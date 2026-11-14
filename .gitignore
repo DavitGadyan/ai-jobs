@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.aws-sam/
+requirements.txt
+.claude/.concise_state
+.claude/settings.local.json
+.aws-sam-deploy.log
+.build/
+portfolio/demo-raw.mp4
