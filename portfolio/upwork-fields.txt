@@ -1,3 +1,0 @@
-Remote MCP Server: Google OAuth, AWS Lambda & Live Job Data
-
-Built a production remote MCP server that lets Claude, Cursor and other AI assistants search 1,500+ live AI job leads stored in Supabase. Users sign in with Google OAuth through a branded consent screen (logo, Terms, Privacy). Access is read-only and rate-limited to 2 tool calls/min per IP. Serverless on AWS Lambda (arm64) behind a Function URL, with DynamoDB for encrypted OAuth state; one-command deploy with uv + AWS SAM, running for cents per month. Stack: Python, FastMCP, Supabase REST, 24 automated tests.
